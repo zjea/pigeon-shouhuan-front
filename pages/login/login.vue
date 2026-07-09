@@ -13,7 +13,9 @@
 					<input class="uni-input" v-model="LoginFrom.password" password placeholder="请输入密码" />
 				</view>
 				<label class="chbox">
-					<checkbox :value="isRemaber"/>记住账号
+					<checkbox-group @change="onChangeRemember" style="display:inline-block;">
+						<checkbox :checked="isRemember" value="1"/>记住账号
+					</checkbox-group>
 				</label>
 				<view class="login-button" >
 					<button type="primary" size="default" plain="true" @click="login">登录</button>
@@ -30,7 +32,14 @@ const LoginFrom = ref({
 	username:'',
 	password:''
 })
-const isRemaber = ref(false)
+const isRemember = ref(false)
+
+const onChangeRemember = function(e){
+	// checkbox-group 的 @change 返回 e.detail.value 是已勾选项的 value 数组
+	const arr = e.detail.value || []
+	isRemember.value = arr.length > 0
+	console.log('checkbox-group event:', e, ' -> isRemember:', isRemember.value)
+}
 
 
 import {useTokenStore} from '@/stores/token.js'
@@ -53,7 +62,28 @@ const login = function(){
 				useToken.setToken(res.data.token)
 				setUseUserStore()
 				setUseShedStore()
-				
+
+				// 登录成功后处理账号密码存储
+				if(isRemember.value){
+					// 勾选了记住账号密码，保存到本地
+					try {
+						uni.setStorageSync('storage_username', LoginFrom.value.username)
+						uni.setStorageSync('storage_password', LoginFrom.value.password)
+						console.log('保存账号密码成功')
+					} catch (e) {
+						console.log('保存账号密码失败:', e)
+					}
+				}else{
+					// 未勾选，清除之前保存的账号密码
+					try {
+						uni.removeStorageSync('storage_username')
+						uni.removeStorageSync('storage_password')
+						console.log('清除账号密码')
+					} catch (e) {
+						console.log('清除账号密码失败:', e)
+					}
+				}
+
 				uni.showToast({
 					title: '登录成功',
 					duration: 1000,
@@ -82,83 +112,52 @@ const login = function(){
 			});
 		}
 	})
-	
-	if(isRemaber){
-		// 若勾选了记住账号，将账号存储在本地
-		uni.setStorage({
-			key: 'storage_username',
-			data: LoginFrom.value.username,
-			success: function () {
-				console.log('success');
-			}
-		});
-	}else{
-		uni.removeStorage({
-			key: 'storage_username',
-			success: function (res) {
-				console.log('success');
-			}
-		});
+}
 
-	}
 
-	
-	
-	//更具token查询用户信息，将信息存储到store中
-	const setUseUserStore = ()=>{
-		uni.request({
-			method:'POST',
-			url:getApp().globalData.url+"/breed/user/app/getUserInfoByToken",
-			header:{
-				token:useToken.token
-			},
-			dataType:'String',
-			success: (res) => {
-				
-				const jsonData = jsonBig.parse(res.data)
-				// 登陆成功，将用户信息存储到store中
-				useUser.setUserId(jsonData.data.id)
-				useUser.setUsername(jsonData.data.name)
-				useUser.setNickname(jsonData.data.name)
-				useUser.setBaseId(jsonData.data.baseId)
-				useShed.setShedList(jsonData.data.userShedList)
-				// console.log(res.data.data.userId);
-				// console.log(res.data.data.username);
-				// console.log(res.data.data.nickname);
-				// console.log(res.data.data.baseId);
-			}
-		})
-	}
+// 更具token查询用户信息，将信息存储到store中
+const setUseUserStore = ()=>{
+	uni.request({
+		method:'POST',
+		url:getApp().globalData.url+"/breed/user/app/getUserInfoByToken",
+		header:{
+			token:useToken.token
+		},
+		dataType:'String',
+		success: (res) => {
 
-	const setUseShedStore = ()=>{
-		// //更具token查询Shed列表
-		// uni.request({
-		// 	method:'POST',
-		// 	url:getApp().globalData.url+"/breed/pigeonshed/app/getUserShedByToken",
-		// 	header:{
-		// 		token:useToken.token
-		// 	},
-		// 	success: (res) => {
-		// 		// console.log(res.data);
-		// 		// 登陆成功，将用户相关Shed信息存储到store中
-		// 		useShed.setShedList(res.data.data)
-		// 	}
-		// })
-		useShed.setShedList(useShed.setShedList)
-	}
+			const jsonData = jsonBig.parse(res.data)
+			// 登陆成功，将用户信息存储到store中
+			useUser.setUserId(jsonData.data.id)
+			useUser.setUsername(jsonData.data.name)
+			useUser.setNickname(jsonData.data.name)
+			useUser.setBaseId(jsonData.data.baseId)
+			useShed.setShedList(jsonData.data.userShedList)
+		}
+	})
+}
+
+const setUseShedStore = ()=>{
 	
+	useShed.setShedList(useShed.setShedList)
 }
 
 
 onMounted(()=>{
 	try {
-		const value = uni.getStorageSync('storage_username');
-		if (value) {
-			LoginFrom.value.username = value;
-			console.log(value);
+		const username = uni.getStorageSync('storage_username');
+		const password = uni.getStorageSync('storage_password');
+		console.log('读取到的账号:', username);
+		console.log('读取到的密码:', password);
+		if (username) {
+			LoginFrom.value.username = username;
+		}
+		if (password) {
+			LoginFrom.value.password = password;
+			isRemember.value = true;
 		}
 	} catch (e) {
-		// error
+		console.log('读取存储失败:', e);
 	}
 
 })

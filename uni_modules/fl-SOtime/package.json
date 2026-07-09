@@ -1,0 +1,29 @@
+{
+    "id": "fl-SOtime",
+    "displayName": "时间戳操作 转日期格式、距离当前时长、时间间隔、日期转时间戳",
+    "version": "2.0",
+    "description": "本组件为时间戳各种常用操作的封装，方便开发者在项目中可以更快速更简洁的实现这些操作或获取、处理某些数据。",
+    "keywords": [
+        "时间戳",
+        "日期格式",
+        "日期间隔",
+        "时间戳格式化",
+        "倒计时"
+    ],
+    "dcloudext": {
+        "category": [
+            "JS SDK",
+            "通用 SDK"
+        ],
+        "contact": {
+            "qq": ""
+        },
+        "declaration": {
+            "ads": "无",
+            "data": "插件不采集任何数据",
+            "permissions": "无"
+        },
+        "npmurl": ""
+    },
+    "repository": ""
+}

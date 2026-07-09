@@ -1,0 +1,7 @@
+	const IS_ORDER_ENUM = {
+		ORDER: 0,
+		FIRSTADJACENT: 1,
+		LASTADJACENT: 2
+	}
+	
+	export default IS_ORDER_ENUM

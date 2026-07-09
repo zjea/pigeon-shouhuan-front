@@ -1,0 +1,164 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path" : "pages/login/login",
+			"style" : 
+			{
+				"navigationBarTitleText" : "login",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "首页",
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/layEggList/layEggList",
+			"style" : 
+			{
+				"navigationBarTitleText" : "产蛋列表",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/takeEggList/takeEggList",
+			"style" : 
+			{
+				"navigationBarTitleText" : "抽蛋列表",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/blueTooth/blueTooth",
+			"style" : 
+			{
+				"navigationBarTitleText" : "蓝牙连接",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/irradiatedEggList/irradiatedEggList",
+			"style" : 
+			{
+				"navigationBarTitleText" : "照蛋列表",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/addCubList/addCubList",
+			"style" : 
+			{
+				"navigationBarTitleText" : "加仔列表",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/bindingCage/bindingCage",
+			"style" : 
+			{
+				"navigationBarTitleText" : "鸽笼绑定",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+				
+			}
+		},
+		{
+			"path" : "pages/abnormalRegistration/abnormalRegistration",
+			"style" : 
+			{
+				"navigationBarTitleText" : "登记异常",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/dataReport/dataReport",
+			"style" : 
+			{
+				"navigationBarTitleText" : "数据统计",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/breedPigeonElimination/breedPigeonElimination",
+			"style" : 
+			{
+				"navigationBarTitleText" : "种鸽淘汰",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/breedAddCage/breedAddCage",
+			"style" : 
+			{
+				"navigationBarTitleText" : "种鸽补笼",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/identificationTags/identificationTags",
+			"style" : 
+			{
+				"navigationBarTitleText" : "标签识别",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		},
+		{
+			"path" : "pages/configurePage/configurePage",
+			"style" : 
+			{
+				"navigationBarTitleText" : "每日工作配置",
+				"enablePullDownRefresh" : false,
+				"titleNView": {
+					"autoBackButton": false
+				}
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "uni-app",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"uniIdRouter": {}
+}

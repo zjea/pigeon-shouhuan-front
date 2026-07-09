@@ -1,0 +1,83 @@
+{
+  "id": "fdm-keepalive",
+  "displayName": "keepalive，fdm",
+  "version": "1.0.0",
+  "description": "keepalive 该插件会检测用户是否将软件退出电池优化 未退出会弹窗提示是否退出且会开启唤醒锁，一种类似加入白名单的保活思路",
+  "keywords": [
+    "fdm-keepalive"
+],
+  "repository": "",
+  "engines": {
+    "HBuilderX": "^3.6.8"
+  },
+  "dcloudext": {
+    "type": "uts",
+    "sale": {
+      "regular": {
+        "price": "0.00"
+      },
+      "sourcecode": {
+        "price": "0.00"
+      }
+    },
+    "contact": {
+      "qq": ""
+    },
+    "declaration": {
+      "ads": "无",
+      "data": "插件不采集任何数据",
+      "permissions": "<uses-permission android:name=\"android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS\"/>\r\n<uses-permission android:name=\"android.permission.WAKE_LOCK\" />"
+    },
+    "npmurl": ""
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "cloud": {
+        "tcb": "y",
+        "aliyun": "y"
+      },
+      "client": {
+        "Vue": {
+          "vue2": "y",
+          "vue3": "y"
+        },
+        "App": {
+          "app-android": {
+            "minVersion": "23"
+        },
+          "app-ios": "n"
+        },
+        "H5-mobile": {
+          "Safari": "n",
+          "Android Browser": "n",
+          "微信浏览器(Android)": "n",
+          "QQ浏览器(Android)": "n"
+        },
+        "H5-pc": {
+          "Chrome": "n",
+          "IE": "n",
+          "Edge": "n",
+          "Firefox": "n",
+          "Safari": "n"
+        },
+        "小程序": {
+          "微信": "n",
+          "阿里": "n",
+          "百度": "n",
+          "字节跳动": "n",
+          "QQ": "n",
+          "钉钉": "n",
+          "快手": "n",
+          "飞书": "n",
+          "京东": "n"
+        },
+        "快应用": {
+          "华为": "n",
+          "联盟": "n"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "json-bigint": "^1.0.0",
+    "pinia-plugin-persistedstate": "^3.2.1"
+  }
+}

@@ -1,0 +1,40 @@
+import Context from "android.content.Context";
+import { UTSAndroid } from "io.dcloud.uts";
+import PowerManager from 'android.os.PowerManager';
+import Intent from 'android.content.Intent';
+import Settings from 'android.provider.Settings';
+import Uri from 'android.net.Uri';
+
+class WakeLockHelper{
+	context: Context
+	private wakeLock: PowerManager.WakeLock | null = null;
+	constructor(context: Context){
+		this.context = context
+	}
+	acquireWakeLock(){
+		let powerManager = this.context.getSystemService(Context.POWER_SERVICE) as PowerManager;
+		this.wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"MyApp::TestWakeLock");
+		this.wakeLock?.acquire();
+	}
+	releaseWakeLock() {
+		this.wakeLock?.release();
+		this.wakeLock = null
+	}
+}
+
+export default function addKeepalive(){
+	const context = UTSAndroid.getAppContext();
+	const pageName = context!.getPackageName();
+	const manager = context!.getSystemService(
+		Context.POWER_SERVICE
+	) as PowerManager;
+	if(!manager.isIgnoringBatteryOptimizations(pageName)){
+		let jumpUrl: Uri = Uri.parse("package:" + pageName);
+		let intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, jumpUrl);
+		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		UTSAndroid.getAppContext()!.startActivity(intent);
+	}
+	let wakeCtrl = new WakeLockHelper(context);
+	wakeCtrl.acquireWakeLock();
+	console.log(manager.isInteractive());
+}

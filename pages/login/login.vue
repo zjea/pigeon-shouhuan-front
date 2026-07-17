@@ -45,9 +45,11 @@ const onChangeRemember = function(e){
 import {useTokenStore} from '@/stores/token.js'
 import {useUserStore} from '@/stores/user.js'
 import { useShedStore } from '../../stores/shed';
+import { useBlueToothStore } from '@/stores/blueTooth';
 const useToken = useTokenStore()
 const useUser = useUserStore()
 const useShed = useShedStore()
+const useBlueTooth = useBlueToothStore()
 
 const login = function(){
 	// 登录验证
@@ -95,6 +97,10 @@ const login = function(){
 					uni.navigateTo({
 						url:"/pages/index/index"
 					})
+					
+					setTimeout(() => {
+						useBlueTooth.autoReconnect()
+					}, 500)
 				},1000)
 			}else{
 				uni.showToast({

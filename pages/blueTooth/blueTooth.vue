@@ -6,7 +6,12 @@
 		<view v-if="useBlueTooth.blueToothList.length" class="blue-tooth-list">
 			<view class="blue-tooth" v-for="(item,index) in useBlueTooth.blueToothList" :key="item.deviceId"
 				@click="useBlueTooth.connetBlue(item)">
-				蓝牙设备{{index+1}}:{{item.deviceId}}
+				<view class="blue-tooth-info">
+					蓝牙设备{{index+1}}:{{item.deviceId}}
+				</view>
+				<view v-if="useBlueTooth.connectedBlueToothDevice === item.deviceId && useBlueTooth.linkStatus" class="connected-mark">
+					<uni-icons type="checkmarkempty" size="30" color="#4cd964"></uni-icons>
+				</view>
 			</view>
 		</view>
 		<view v-else class="no-blue-tooth">暂无设备，请刷新列表</view>
@@ -23,16 +28,24 @@
 		ref,
 		onMounted
 	} from 'vue';
-	import { onUnload } from '@dcloudio/uni-app'
+	import { onUnload, onShow } from '@dcloudio/uni-app'
 	import { useBlueToothStore } from '@/stores/blueTooth';
 	const useBlueTooth = useBlueToothStore()
 	
 	console.log(useBlueTooth.blueToothList);
 	
-	// 切换别的页面时触发
+	onShow(() => {
+		console.log('蓝牙页面显示')
+		
+		if (!useBlueTooth.linkStatus && useBlueTooth.connectedBlueToothDevice) {
+			useBlueTooth.checkConnectionStatus()
+		}
+		
+		useBlueTooth.addLastConnectedDeviceToList()
+	})
+	
 	onUnload(()=>{
-		useBlueTooth.blueToothList = []
-		// useBlueTooth.listenCharacteristicValueChange()
+		// useBlueTooth.blueToothList = []
 		uni.stopBluetoothDevicesDiscovery({
 			success: function(res) {
 				console.log('停止搜索蓝牙设备');
@@ -401,7 +414,17 @@
 				border-radius: 15rpx;
 				display: flex;
 				align-items: center;
-				justify-content: center;
+				justify-content: space-between;
+				padding: 0 30rpx;
+				
+				.blue-tooth-info {
+					flex: 1;
+				}
+				
+				.connected-mark {
+					color: #4cd964;
+					font-weight: bold;
+				}
 			}
 		}
 

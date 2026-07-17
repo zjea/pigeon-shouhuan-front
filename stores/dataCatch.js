@@ -284,33 +284,99 @@ export const useDataCatchStore = defineStore('dataCatch', () => {
 		}
 	}
 	
+	const checkLabelBinding = (nfcValue, excludeCageId = null) => {
+		if(!nfcValue || !bindingCageList.value || !Array.isArray(bindingCageList.value)){
+			return null
+		}
+		for(let item of bindingCageList.value){
+			if(!item || typeof item.id === 'undefined') continue;
+			if(item.panelCode === nfcValue){
+				if(excludeCageId && JSON.stringify(item.id) === JSON.stringify(excludeCageId)){
+					continue
+				}
+				return item
+			}
+		}
+		return null
+	}
+	
 	// 绑定鸽笼
-	const bandingCage = async(cageId, nfcValue) => {
-		console.log("绑定id：", cageId);
-		await bindingCageList.value.filter(item => {
-			if(JSON.stringify(item.id) === JSON.stringify(cageId)){
-				console.log("绑定中...")
-				if(item.panelCode === null || item.panelCode === '' ){
+	const bandingCage = async(cageId, nfcValue, force = false) => {
+		try{
+			if(!cageId){
+				console.warn("绑定失败：cageId为空")
+				return
+			}
+			if(!nfcValue){
+				console.warn("绑定失败：nfcValue为空")
+				return
+			}
+			if(!bindingCageList.value || !Array.isArray(bindingCageList.value)){
+				console.warn("绑定失败：bindingCageList不是有效数组")
+				return
+			}
+			
+			console.log("绑定id：", cageId);
+			let found = false;
+			
+			if(!force){
+				const existingCage = checkLabelBinding(nfcValue, cageId)
+				if(existingCage){
+					return {
+						success: false,
+						conflict: true,
+						existingCage: existingCage
+					}
+				}
+			}
+			
+			for(let item of bindingCageList.value){
+				if(!item || typeof item.id === 'undefined') continue;
+				
+				if(item.panelCode === nfcValue && JSON.stringify(item.id) !== JSON.stringify(cageId)){
+					item.panelCode = null;
+				}
+			}
+			
+			for(let item of bindingCageList.value){
+				if(!item || typeof item.id === 'undefined') continue;
+				
+				if(JSON.stringify(item.id) === JSON.stringify(cageId)){
+					found = true;
+					console.log("绑定中...")
 					item.panelCode = nfcValue;
 					uni.showToast({
 						title:"绑定成功",
 						icon:"success"
 					})
-				}else{
-					uni.showToast({
-						title:"该标签已被绑定",
-						icon:"error"
-					})
+					break;
 				}
 			}
-		} )
-		
-		try {
-			uni.setStorageSync('storage_bindingCageList', bindingCageList.value);
-			console.log('本地磁盘更新绑定鸽笼列表状态成功。');
-		} catch (e) {
-			// error
-			console.log('本地磁盘更新绑定鸽笼列表状态成功。');
+			
+			if(!found){
+				console.warn("未找到匹配的鸽笼:", cageId)
+				uni.showToast({
+					title:"未找到鸽笼",
+					icon:"error"
+				})
+				return { success: false, conflict: false }
+			}
+			
+			try {
+				uni.setStorageSync('storage_bindingCageList', bindingCageList.value);
+				console.log('本地磁盘更新绑定鸽笼列表状态成功。');
+			} catch (e) {
+				console.error('本地磁盘更新绑定鸽笼列表失败:', e);
+			}
+			
+			return { success: true, conflict: false }
+		}catch(e){
+			console.error("bandingCage异常:", e)
+			uni.showToast({
+				title:"绑定异常",
+				icon:"error"
+			})
+			return { success: false, conflict: false }
 		}
 	}
 	
@@ -348,6 +414,7 @@ export const useDataCatchStore = defineStore('dataCatch', () => {
 		setBindingCageList,
 		getBindingCageList,
 		cleanBindingCageList,
+		checkLabelBinding,
 		bandingCage,
 		unBandingCage,
 		

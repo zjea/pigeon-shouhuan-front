@@ -15,7 +15,7 @@
 					<uni-td align="center" width="200" style="font-size: 40rpx;">{{item.number}}{{commUtils.translateLeftRight(item.leftRight)}}{{translatePosition(item.position)}}</uni-td>
 					<uni-td>
 						<button type="primary" v-if="item.panelCode" @click="unbind(item.id)">解除绑定</button>
-						<button type="warn" v-else>鸽笼未绑定</button>
+						<button type="warn" v-else @click="startBind(item.id)">鸽笼未绑定</button>
 					</uni-td>
 				</uni-tr>
 			</uni-table>
@@ -30,18 +30,27 @@
 					<uni-td align="center" width="200" style="font-size: 40rpx;">{{item.number}}{{translatePosition(item.position)}}</uni-td>
 					<uni-td>
 						<button type="primary" v-if="item.panelCode" @click="unbind(item.id)">解除绑定</button>
-						<button type="warn" v-else>鸽笼未绑定</button>
+						<button type="warn" v-else @click="startBind(item.id)">鸽笼未绑定</button>
 					</uni-td>
 				</uni-tr>
 			</uni-table>
 
+		</view>
+		
+		<view v-if="isWaitingForTag" class="waiting-modal">
+			<view class="waiting-content">
+				<uni-icons type="scan" size="80" color="#007aff"></uni-icons>
+				<text class="waiting-text">请贴RFID标签</text>
+				<text class="waiting-tip">已选择鸽笼：{{selectedCageInfo}}</text>
+				<button type="default" @click="cancelBind">取消</button>
+			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
 import { ref, onMounted,watch } from 'vue';
-import { onShow, onBackPress } from '@dcloudio/uni-app'
+import { onShow, onBackPress, onUnload } from '@dcloudio/uni-app'
 import { useTokenStore } from '@/stores/token';
 import { useShedStore } from '@/stores/shed';
 import { useBlueToothStore } from '@/stores/blueTooth';
@@ -54,18 +63,17 @@ const useShed = useShedStore()
 const useBlueTooth = useBlueToothStore()
 const useDataCatch = useDataCatchStore()
 
-// 显示的自己颜色
 const fontColor = ref("black")
 
-// 控制显示绑定按钮或解绑按钮
 const button = ref(false)
-// 鸽笼列表
 const cageList = ref([])
-// 备份鸽笼列表
 const cageListBack = ref([])
 
-// 点击选中鸽笼
 const selectCage = ref('')
+
+const isWaitingForTag = ref(false)
+const selectedCageInfo = ref('')
+const pendingCageId = ref('')
 
 
 
@@ -127,50 +135,115 @@ const selectedCage = (cageId)=>{
 	console.log(selectCage.value);
 }
 
-// 绑定鸽笼，需要监听是否读取到nfc数据
-watch(()=> useBlueTooth.nfcData,
-	(newNfc)=>{ // newNfc就是读取的数据
-		if(newNfc !== null){
-			// 操作缓存的鸽笼列表信息，最后进行批量更新
-			useDataCatch.bandingCage(selectCage.value, newNfc);
-			cageList.value = useDataCatch.getBindingCageList();
-			cageListBack.value = useDataCatch.getBindingCageList();
-			
-			// uni.request({
-			// 	url:getApp().globalData.url+`/app/bindCage?cageId=${selectCage.value}&shedId=${useShed.shedId}&label=${newNfc}`,
-			// 	header:{
-			// 		token:useToken.token
-			// 	},
-			// 	success: (res) => {
-			// 		console.log(res.data);
-			// 		if(res.data.data === null){
-			// 			uni.showToast({
-			// 				title:"该标签已被绑定",
-			// 				icon:"error"
-			// 			})
-			// 		}else{
-			// 			uni.showToast({
-			// 				title:"绑定成功",
-			// 				icon:'success'
-			// 			})
-			// 			// // store中的nfc标签值置为空
-						
-			// 			selectCage.value = ''
-			// 			getCageList()
-			// 		}
-			// 		useBlueTooth.removeNfcData();
-					
-			// 	},
-			// 	fail: (err) => {
-			// 		uni.showToast({
-			// 			title:"服务异常",
-			// 			icon:'error',
-			// 			duration:1500
-			// 		})
-			// 	}
-			// })
+const startBind = (cageId)=>{
+	selectCage.value = cageId
+	pendingCageId.value = cageId
+	
+	const item = cageList.value.find(c => c.id === cageId)
+	if(item){
+		selectedCageInfo.value = item.number + (useShed.cageMode === 0 ? commUtils.translateLeftRight(item.leftRight) : '') + translatePosition(item.position)
+	}
+	
+	isWaitingForTag.value = true
+	
+	useBlueTooth.listenCharacteristicValueChange()
+	
+	setTimeout(() => {
+		if(isWaitingForTag.value){
+			cancelBind()
+			uni.showToast({
+				title:"超时，请重试",
+				icon:"none",
+				duration:1500
+			})
 		}
+	}, 10000)
+}
 
+const cancelBind = ()=>{
+	isWaitingForTag.value = false
+	pendingCageId.value = ''
+	useBlueTooth.stopListenCharacteristicValueChange()
+	useBlueTooth.removeNfcData()
+}
+
+watch(()=> useBlueTooth.nfcData,
+	async (newNfc)=>{
+		try{
+			if(!isWaitingForTag.value) return
+			if(newNfc === null || typeof newNfc !== 'string' || newNfc.trim() === '') return
+			
+			isWaitingForTag.value = false
+			
+			const result = await useDataCatch.bandingCage(pendingCageId.value, newNfc);
+			
+			if(result && result.conflict && result.existingCage){
+				const existingCage = result.existingCage
+				const existingCageName = existingCage.number + (useShed.cageMode === 0 ? commUtils.translateLeftRight(existingCage.leftRight) : '') + translatePosition(existingCage.position)
+				
+				uni.showModal({
+					title: '标签已绑定',
+					content: '该标签已绑定到"'+ existingCageName +'"，确定要绑定到当前鸽笼吗？',
+					confirmText: '确定绑定',
+					cancelText: '取消',
+					success: async (modalRes) => {
+						if(modalRes.confirm){
+							await useDataCatch.bandingCage(pendingCageId.value, newNfc, true);
+							try{
+								const list = useDataCatch.getBindingCageList();
+								if(list && Array.isArray(list)){
+									cageList.value = list;
+									cageListBack.value = list;
+								}
+							}catch(listErr){
+								console.error("获取鸽笼列表异常:", listErr)
+							}
+						}else{
+							uni.showToast({
+								title:"已取消绑定",
+								icon:"none",
+								duration:1500
+							})
+						}
+						useBlueTooth.stopListenCharacteristicValueChange()
+						useBlueTooth.removeNfcData()
+						pendingCageId.value = ''
+					},
+					fail: () => {
+						useBlueTooth.stopListenCharacteristicValueChange()
+						useBlueTooth.removeNfcData()
+						pendingCageId.value = ''
+					}
+				})
+				return
+			}
+			
+			try{
+				const list = useDataCatch.getBindingCageList();
+				if(list && Array.isArray(list)){
+					cageList.value = list;
+					cageListBack.value = list;
+				}
+			}catch(listErr){
+				console.error("获取鸽笼列表异常:", listErr)
+			}
+			
+			useBlueTooth.stopListenCharacteristicValueChange()
+			useBlueTooth.removeNfcData()
+			pendingCageId.value = ''
+			
+		}catch(e){
+			console.error("绑定鸽笼操作异常:", e)
+			isWaitingForTag.value = false
+			useBlueTooth.stopListenCharacteristicValueChange()
+			useBlueTooth.removeNfcData()
+			pendingCageId.value = ''
+			uni.showToast({
+				title:"操作异常",
+				icon:"error",
+				duration:1500
+			})
+		}
 	}
 )
 
@@ -270,12 +343,16 @@ const cancel = ()=>{
 	
 // })
 onShow(()=>{
-	useBlueTooth.listenCharacteristicValueChange()
 	getCageList()
 })
 
 onBackPress(()=>{
+	cancelBind()
 	doBandingCageList();
+})
+
+onUnload(()=>{
+	cancelBind()
 })
 
 </script>
@@ -293,6 +370,45 @@ onBackPress(()=>{
 			font-size: 60rpx;
 			text-align: center;
 			font-weight: 600;
+		}
+	}
+}
+
+.waiting-modal{
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0,0,0,0.5);
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	z-index: 1000;
+	
+	.waiting-content{
+		background: white;
+		border-radius: 20rpx;
+		padding: 60rpx 80rpx;
+		text-align: center;
+		
+		.waiting-text{
+			display: block;
+			font-size: 36rpx;
+			color: #333;
+			margin-top: 30rpx;
+		}
+		
+		.waiting-tip{
+			display: block;
+			font-size: 28rpx;
+			color: #999;
+			margin-top: 20rpx;
+			margin-bottom: 40rpx;
+		}
+		
+		button{
+			width: 200rpx;
 		}
 	}
 }

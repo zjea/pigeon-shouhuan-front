@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { watchConnect, getWatchVersion, watchBattery, onGetLabelId } from '@/uni_modules/lyj-watch';
+import { watchConnect, getWatchVersion, watchBattery, onGetLabelId, closeGetLabelId, getLabelValue } from '@/uni_modules/lyj-watch';
 
 export const useBlueToothStore = defineStore('blueTooth', () => {
 
@@ -35,6 +35,12 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 	const nfcDataList  = ref([])
 	
 	const deviceSet = new Set()
+	
+	const isListening = ref(false)
+	
+	const lastNfcData = ref(null)
+	
+	const lastNfcTime = ref(0)
 		
 	// 设置读取的nfc数据
 	const setNfcData = (data)=>{
@@ -204,38 +210,54 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 	}
 
 
-	// *********************************************************
-	// 启用低功耗蓝牙设备特征值变化时的 notify 功能，rfid
+	let pollTimer = null
+	
 	const listenCharacteristicValueChange = () => {
-		var redNfc = null;
+		if (isListening.value) {
+			return
+		}
+		isListening.value = true
 		
-		// 使用sdk提供的接口来识别标签
+		onGetLabelId(function(){});
 		
-		onGetLabelId(function(label){
-			redNfc = label;
-			if(label == nfcData.value){
-				// uni.showToast({
-				// 	title:"请勿重复操作",
-				// 	icon:"error"
-				// })
-				// nfcData.value = null;
-				return
+		pollTimer = setInterval(() => {
+			try{
+				const label = getLabelValue()
+				if (!label || typeof label !== 'string' || label.trim() === '') {
+					return
+				}
+				
+				if (label === lastNfcData.value) {
+					return
+				}
+				
+				lastNfcData.value = label
+				nfcData.value = label
+				
+				if (nfcDataList.value && Array.isArray(nfcDataList.value)) {
+					if (nfcDataList.value.length > 50) {
+						nfcDataList.value = nfcDataList.value.slice(-20)
+					}
+					nfcDataList.value.push(label)
+				}
+			}catch(e){
+				console.error("RFID轮询异常:", e)
 			}
-			nfcData.value = redNfc;
-			
-			// setTimeout(()=>{
-			// 	nfcData.value = ""
-			// },2000)
-
-		});
+		}, 500);
 		
-		console.log("nfcData.value:"+nfcData.value);
-		// 这部分用于产蛋和抽蛋
-
-		
-		// 这部分用于照蛋和加仔
-		nfcDataList.value.push(redNfc);
-		return redNfc;
+		console.log("RFID监听已开启（轮询方式）");
+	}
+	
+	const stopListenCharacteristicValueChange = () => {
+		closeGetLabelId()
+		isListening.value = false
+		if (pollTimer) {
+			clearInterval(pollTimer)
+			pollTimer = null
+		}
+		lastNfcData.value = null
+		nfcData.value = null
+		console.log("RFID监听已关闭");
 	}
 
 
@@ -265,6 +287,7 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 		characteristicId,
 		writeCharacteristicId,
 		listenCharacteristicValueChange,
+		stopListenCharacteristicValueChange,
 		// writeInfo,
 		linkStatus,
 		quantityOfElectricity,

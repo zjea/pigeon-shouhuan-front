@@ -58,6 +58,11 @@ export type GetLabelId = (callback: (label: string) => void) => void
 export type CloseGetLabelId = () => void
 
 /**
+ * 获取当前标签值（轮询方式）
+ */
+export type GetLabelValue = () => string
+
+/**
  * 断开蓝牙
  */
 export type WatchDisconnect = () => void

@@ -14,7 +14,8 @@ import { MyApiOptions,
 			WatchBattery, 
 			GetLabelId, 
 			CloseGetLabelId,
-			WatchDisconnect
+			WatchDisconnect,
+			GetLabelValue
 			
 		} from '../interface.uts';
 
@@ -27,7 +28,7 @@ import { MyApiFailImpl } from '../unierror';
  *
  * 在 Android 平台引入三方库有以下两种方式：
  * 1、[推荐] 通过 仓储 方式引入，将 三方库的依赖信息 配置到 config.json 文件下的 dependencies 字段下。详细配置方式[详见](https://uniapp.dcloud.net.cn/plugin/uts-plugin.html#dependencies)
- * 2、直接引入，将 三方库的aar或jar文件 放到libs目录下。更多信息[详见](https://uniapp.dcloud.net.cn/plugin/uts-plugin.html#android%E5%B9%B3%E5%8F%B0%E5%8E%9F%E7%94%9F%E9%85%8D%E7%BD%AE)
+ * 2、直接引入，将 三方库的aar或jar文件 放到libs目录下。更多信息[详见](https://uniapp.dcloud.net.cn/plugin/uts-plugin.html#android%E5%B9%B3%E5%8F%B0%E5%8E%9F%E7%BD%AE)
  *
  * 在通过上述任意方式依赖三方库后，使用时需要在文件中 import，如下示例：
  * import { LottieAnimationView } from 'com.airbnb.lottie.LottieAnimationView'
@@ -44,35 +45,18 @@ import { UTSAndroid } from "io.dcloud.uts";
 import Log from "android.util.Log";
 import array from 'android.R.array';
 
-// import { useBlueToothStore } from '@/stores/blueTooth';
-// const useBlueTooth = useBlueToothStore()
-
 var context = UTSAndroid.getAppContext();
 var device = Device.getInstance(context);
 var power: Int = 16;
 
-/**
- * 手环连接蓝牙
- * 
- * 返回信息：
- * 成功：硬件信息字符串，
- * 失败：Null
- * 
- */
+var currentLabel: string = "";
+
 export const watchConnect : WatchConnect = function(id : string): boolean {
 	console.log("传给SDK的connect（）方法的id位："+id);
-	// const context : Context = new Context();
-	// const context = UTSAndroid.getAppContext();
-	// 调用接口连接蓝牙
-	// const b = Device.getInstance(context).connect(id); 
-	// 连接蓝牙
 	const b = device.connect(id); 
 	console.log("当前蓝牙是否连接---"+b);
 	if(b){
-		// 设置连接监听器， 可以监听连接的状态是否断开
-		// 使用UTS 实现 OnClickListener接口 
 		class ConnListener implements OnConnectionListener {
-			
 		    override onConnecting():void{
 				console.log("蓝牙连接中！！！！！");
 		    }
@@ -87,11 +71,9 @@ export const watchConnect : WatchConnect = function(id : string): boolean {
 				console.log("蓝牙断开！！！！！！");
 			}
 		};
-		// const connListener = new ConnListener()
 		device.setOnConnectionListener(new ConnListener());
 		console.log("开启连接监听器---");
 		
-		// 设置电池监听器
 		class BatteryListener implements OnBatteryListener{
 			override onBattery(battery : Int):void{
 				Log.e("onBatteryListener","battery:"+battery);
@@ -102,13 +84,10 @@ export const watchConnect : WatchConnect = function(id : string): boolean {
 		device.setOnBatteryListener(new BatteryListener());
 		console.log("开启电池监听器---");
 		
-
-		// 设置设备功率
 		try{
 			device.setPower(18);
 			console.log("设置设备功率为---"+18);
 		}catch(e){
-			//TODO handle the exception
 			console.log("设置设备功率出错---"+e);
 		}
 		
@@ -117,88 +96,50 @@ export const watchConnect : WatchConnect = function(id : string): boolean {
 	return b;
 }
 
-/**
- * 获取手环电量
- * 返回信息：number
- */
 export const watchBattery : WatchBattery = function(): number {
-	 // device.getBattery();
 	 try{
 		let a = device.getBattery();
 		Log.d("handheld_p", "getBattery: " + a);
 		return a[0];
 	 }catch(e){
-	 	//TODO handle the exception
 		console.log("3......................"+e);
 	 }
 	return -1;
 }
 
-/**
- * 获取手环固件信息
- * 返回信息：String
- */
 export const getWatchVersion : GetWatchVersion = function(): string {
-	// const context = UTSAndroid.getAppContext();
-	// return Device.getInstance(context).getVersion();
 	return device.getVersion();
 }
 
-/**
- * 开启连续标签读取
- */
 export const onGetLabelId : GetLabelId = function(callback: (label: string) => void): void{
-
-	
-	// var flag = true;
-	
-	
-	// 设置读卡监听
+	currentLabel = "";
 	class UHFListener implements OnUHFListener{
-		
-		// 添加一个成员变量来存储定时器ID
-		public intervalId : number | null = null;
-	
 		override onInventory(pc: ByteArray, epc: ByteArray, rssi: Int):void{
-			// 拼接成完整的卡片id
-			// const _pc:string = Common.bytes2String(pc, 0, 2);
 			const _epc:string = Common.bytes2String(epc, 0, epc.count()).replaceAll(" ","");
-			
-			// 通过回调函数将监听到的数据传出去
-			// 设置一个定时器
-			intervalId = setTimeout(() => {
-				callback(_epc); // 假设这是你的回调函数
-			}, 300);
+			currentLabel = _epc;
 		}
 		
 		override onInventoryStop():void{
 			console.log("停止读卡功能！！！！！");
-			if (intervalId !== null) {
-				clearInterval(intervalId as number);
-				intervalId = null; // 清除定时器ID
-			}
+			currentLabel = "";
 		}
 	}
 	device.setOnUHFListener(new UHFListener());
 	console.log("开启读卡监听器---");
-
 	device.inventory();
-
 }
 
+export const getLabelValue : GetLabelValue = function(): string {
+	return currentLabel;
+}
 
-/**
- * 关闭连续标签读取
- */
 export const closeGetLabelId: CloseGetLabelId = function(): void{
 	device.stopInventory();
+	currentLabel = "";
 	console.log("关闭连续读卡功能！！！！！");
 }
 
-/**
- * 关闭蓝牙连接
- */
-export const  watchDisconnect: WatchDisconnect = function(): void{
+export const watchDisconnect: WatchDisconnect = function(): void{
 	device.disconnect();
 	console.log("断开蓝牙！！！！！");
 }

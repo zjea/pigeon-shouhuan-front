@@ -18,7 +18,7 @@
 
 <script setup>
 import { watch } from 'vue';
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onUnload } from '@dcloudio/uni-app'
 import { useBlueToothStore } from '@/stores/blueTooth';	
 import { useTokenStore } from '@/stores/token';
 import { useCageStore } from '@/stores/cage';
@@ -101,6 +101,10 @@ onBackPress((options) => {
 
 onShow (()=>{
  	useBlueTooth.listenCharacteristicValueChange()
+})
+
+onUnload(()=>{
+	useBlueTooth.stopListenCharacteristicValueChange()
 })
 </script>
 

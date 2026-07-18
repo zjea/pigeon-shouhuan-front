@@ -18,6 +18,7 @@
 					<view class="bluetooth-text" @click="goBuleToothPage">
 						<view class="bluetooth">蓝牙</view>
 						<view class="text" v-if="useBlueTooth.linkStatus">剩余电量:{{useBlueTooth.quantityOfElectricity}}%</view>
+						<view class="text" v-else-if="useBlueTooth.isAutoReconnecting">自动连接中...</view>
 						<view class="text" v-else>未连接</view>
 					</view>
 

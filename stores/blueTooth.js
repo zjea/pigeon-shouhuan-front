@@ -63,6 +63,12 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 			return
 		}
 		
+		if (isAutoReconnecting.value) {
+			console.log('自动重连跳过：正在重连中')
+			return
+		}
+		
+		isAutoReconnecting.value = true
 		console.log('开始自动重连流程，目标设备:', lastDevice.deviceId)
 		
 		if (!isInit.value) {
@@ -72,94 +78,65 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 					console.log('自动重连：蓝牙初始化成功')
 					isInit.value = true
 					setTimeout(() => {
-						_doAutoReconnect(lastDevice)
+						_scanAndReconnect(lastDevice)
 					}, 500)
 				},
 				fail: (e) => {
 					console.error('自动重连：蓝牙初始化失败:', e)
+					isAutoReconnecting.value = false
 				}
 			})
 		} else {
 			console.log('自动重连：蓝牙适配器已初始化')
-			_doAutoReconnect(lastDevice)
+			_scanAndReconnect(lastDevice)
 		}
 	}
 	
-	const _doAutoReconnect = (device) => {
-		console.log('执行自动重连，设备ID:', device.deviceId)
-		
-		const b = watchConnect(device.deviceId)
-		console.log('watchConnect返回:', b)
-		
-		connectedBlueToothDevice.value = device.deviceId
-		
-		setTimeout(() => {
-			if (b) {
-				console.log('自动重连成功！')
-				linkStatus.value = true
-				
-				try {
-					let battery = watchBattery()
-					quantityOfElectricity.value = battery
-					console.log('手环当前电量：', battery)
-				} catch (e) {
-					console.error('获取电量失败:', e)
-				}
-				
-				uni.showToast({
-					title: '蓝牙已自动连接',
-					icon: 'success',
-					duration: 2000
-				})
-				
-				try {
-					const innerAudioContext = uni.createInnerAudioContext()
-					innerAudioContext.autoplay = true
-					innerAudioContext.src = '../../static/audio/linkBlueTooth.wav'
-					innerAudioContext.onPlay(() => {
-						console.log('开始播放《蓝牙连接成功》语音...')
-					})
-				} catch (e) {
-					console.error('播放语音失败:', e)
-				}
-			} else {
-				console.log('自动重连失败，尝试扫描后重连...')
-				_doAutoReconnectWithScan(device)
-			}
-		}, 2500)
-	}
-	
-	const _doAutoReconnectWithScan = (device) => {
-		console.log('扫描设备并重连...')
+	// 先扫描设备，确认手环已开机在广播，再尝试连接
+	const _scanAndReconnect = (device) => {
+		console.log('开始扫描设备确认手环是否开机...')
 		
 		let foundDevice = false
+		let stopped = false
+		
+		const stopDiscovery = () => {
+			if (stopped) return
+			stopped = true
+			try {
+				uni.stopBluetoothDevicesDiscovery()
+			} catch (e) {
+				console.error('停止扫描失败:', e)
+			}
+		}
 		
 		uni.startBluetoothDevicesDiscovery({
 			success: () => {
-				console.log('开始扫描设备...')
+				console.log('扫描启动成功，等待发现设备...')
 				
 				const discoveryHandler = (res) => {
+					if (foundDevice) return
 					const devices = res.devices || []
-					console.log('发现设备数量:', devices.length)
 					
 					for (let d of devices) {
 						if (d.deviceId === device.deviceId) {
-							console.log('发现目标设备，尝试连接...')
+							console.log('发现目标设备，手环已开机！尝试连接...', d.deviceId)
 							foundDevice = true
-							uni.offBluetoothDeviceFound(discoveryHandler)
-							uni.stopBluetoothDevicesDiscovery()
+							stopDiscovery()
 							
 							const b = watchConnect(device.deviceId)
-							console.log('扫描后连接结果:', b)
+							console.log('watchConnect调用返回:', b)
 							
 							setTimeout(() => {
 								if (b) {
-									console.log('扫描后重连成功！')
+									console.log('自动重连完成，标记连接状态')
+									connectedBlueToothDevice.value = device.deviceId
 									linkStatus.value = true
+									isAutoReconnecting.value = false
 									
 									try {
 										let battery = watchBattery()
 										quantityOfElectricity.value = battery
+										console.log('手环当前电量：', battery)
 									} catch (e) {
 										console.error('获取电量失败:', e)
 									}
@@ -169,8 +146,27 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 										icon: 'success',
 										duration: 2000
 									})
+									
+									try {
+										const innerAudioContext = uni.createInnerAudioContext()
+										innerAudioContext.autoplay = true
+										innerAudioContext.src = '../../static/audio/linkBlueTooth.wav'
+										innerAudioContext.onPlay(() => {
+											console.log('开始播放《蓝牙连接成功》语音...')
+										})
+									} catch (e) {
+										console.error('播放语音失败:', e)
+									}
 								} else {
-									console.log('扫描后连接仍失败')
+									console.log('watchConnect返回false，连接失败')
+									linkStatus.value = false
+									connectedBlueToothDevice.value = ''
+									isAutoReconnecting.value = false
+									uni.showToast({
+										title: '手环连接失败，请手动连接',
+										icon: 'none',
+										duration: 2000
+									})
 								}
 							}, 2500)
 							return
@@ -182,14 +178,20 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 				
 				setTimeout(() => {
 					if (!foundDevice) {
-						uni.offBluetoothDeviceFound(discoveryHandler)
-						uni.stopBluetoothDevicesDiscovery()
-						console.log('扫描超时，未发现目标设备')
+						stopDiscovery()
+						console.log('扫描超时，未发现目标设备，手环可能未开机，自动重连终止')
+						isAutoReconnecting.value = false
+						uni.showToast({
+							title: '手环未开机，无法自动连接',
+							icon: 'none',
+							duration: 2000
+						})
 					}
 				}, 5000)
 			},
 			fail: (e) => {
 				console.error('扫描设备失败:', e)
+				isAutoReconnecting.value = false
 			}
 		})
 	}
@@ -233,6 +235,8 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 	
 	// 设备电量
 	const quantityOfElectricity = ref(-1)
+	// 是否正在自动重连中
+	const isAutoReconnecting = ref(false)
 	// 读取的nfc数据
 	const nfcData = ref(null)
 	
@@ -520,6 +524,7 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 		// writeInfo,
 		linkStatus,
 		quantityOfElectricity,
+		isAutoReconnecting,
 		// closeConnectDevice,
 		nfcData,
 		nfcDataList,

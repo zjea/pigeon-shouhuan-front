@@ -1,25 +1,18 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { watchConnect, getWatchVersion, watchBattery, onGetLabelId, closeGetLabelId, getLabelValue } from '@/uni_modules/lyj-watch';
+import { watchConnect, getWatchVersion, watchBattery, onGetLabelId, closeGetLabelId, getLabelValue, watchDisconnect } from '@/uni_modules/lyj-watch';
 
 export const useBlueToothStore = defineStore('blueTooth', () => {
 
-	// 蓝牙是否初始化成功
 	const isInit = ref(false)
 
 	const blueToothList = ref([])
-	// 当前连接的蓝夜的id
 	const connectedBlueToothDevice = ref("")
-	// 当前连接的蓝牙服务的uuid
 	const advertisServiceUUIDs = ref("")
-	// 当前蓝夜连接的特征值id 
 	const characteristicId = ref("")
-	// 当前蓝夜连接的写操作特征值id 
 	const writeCharacteristicId = ref("")
-	// 连接状态
 	const linkStatus = ref(false)
 	
-	// 设置连接状态
 	const setLinkStatusFalse = (data)=>{
 		linkStatus.value = false;
 	}
@@ -28,24 +21,42 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 	
 	const saveConnectedDevice = (device) => {
 		try {
-			const deviceStr = JSON.stringify(device)
+			const existing = getConnectedDevices()
+			const found = existing.find(d => d.deviceId === device.deviceId)
+			if (!found) {
+				existing.push(device)
+			}
+			const deviceStr = JSON.stringify(existing)
 			console.log('保存设备信息:', deviceStr)
-			uni.setStorageSync('lastConnectedDevice', deviceStr)
+			uni.setStorageSync('connectedDevices', deviceStr)
 			console.log('保存连接设备成功:', device.deviceId)
 		} catch (e) {
 			console.error('保存连接设备失败:', e)
 		}
 	}
 	
-	const getLastConnectedDevice = () => {
+	const getConnectedDevices = () => {
 		try {
-			const deviceStr = uni.getStorageSync('lastConnectedDevice')
-			console.log('读取保存的设备信息:', deviceStr)
-			return deviceStr ? JSON.parse(deviceStr) : null
+			const deviceStr = uni.getStorageSync('connectedDevices')
+			if (deviceStr) {
+				return JSON.parse(deviceStr)
+			}
+			const oldDeviceStr = uni.getStorageSync('lastConnectedDevice')
+			if (oldDeviceStr) {
+				const oldDevice = JSON.parse(oldDeviceStr)
+				uni.setStorageSync('connectedDevices', JSON.stringify([oldDevice]))
+				return [oldDevice]
+			}
+			return []
 		} catch (e) {
-			console.error('获取上次连接设备失败:', e)
-			return null
+			console.error('获取连接设备列表失败:', e)
+			return []
 		}
+	}
+	
+	const getLastConnectedDevice = () => {
+		const devices = getConnectedDevices()
+		return devices.length > 0 ? devices[devices.length - 1] : null
 	}
 	
 	const autoReconnect = () => {
@@ -92,7 +103,6 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 		}
 	}
 	
-	// 先扫描设备，确认手环已开机在广播，再尝试连接
 	const _scanAndReconnect = (device) => {
 		console.log('开始扫描设备确认手环是否开机...')
 		
@@ -168,7 +178,7 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 										duration: 2000
 									})
 								}
-							}, 2500)
+							}, 2000)
 							return
 						}
 					}
@@ -179,8 +189,8 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 				setTimeout(() => {
 					if (!foundDevice) {
 						stopDiscovery()
-						console.log('扫描超时，未发现目标设备，手环可能未开机，自动重连终止')
 						isAutoReconnecting.value = false
+						console.log('扫描超时，未发现目标设备')
 						uni.showToast({
 							title: '手环未开机，无法自动连接',
 							icon: 'none',
@@ -190,118 +200,78 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 				}, 5000)
 			},
 			fail: (e) => {
-				console.error('扫描设备失败:', e)
+				console.error('扫描启动失败:', e)
 				isAutoReconnecting.value = false
 			}
 		})
 	}
 	
+	const isAutoReconnecting = ref(false)
+	
 	const checkConnectionStatus = () => {
-		if (!connectedBlueToothDevice.value) {
-			return
-		}
-		
-		uni.getBLEDeviceConnectionState({
-			deviceId: connectedBlueToothDevice.value,
-			success: (res) => {
-				if (res.connected) {
+		if (connectedBlueToothDevice.value) {
+			try {
+				const result = watchConnect(connectedBlueToothDevice.value)
+				if (result) {
 					linkStatus.value = true
-					console.log('蓝牙连接状态正常')
-				} else {
-					linkStatus.value = false
-					console.log('蓝牙已断开连接')
 				}
-			},
-			fail: (err) => {
-				console.error('检查连接状态失败:', err)
-				linkStatus.value = false
+			} catch (e) {
+				console.error('检查连接状态失败:', e)
 			}
-		})
+		}
 	}
 	
 	const addLastConnectedDeviceToList = () => {
 		const lastDevice = getLastConnectedDevice()
-		if (!lastDevice || !lastDevice.deviceId) {
-			return
-		}
-		
-		const exists = blueToothList.value.some(item => item.deviceId === lastDevice.deviceId)
-		if (!exists) {
+		if (lastDevice && !blueToothList.value.find(d => d.deviceId === lastDevice.deviceId)) {
 			blueToothList.value.push(lastDevice)
-			deviceSet.add(lastDevice.deviceId)
-			console.log('已添加上次连接的设备到列表:', lastDevice.deviceId)
 		}
 	}
-	
-	// 设备电量
-	const quantityOfElectricity = ref(-1)
-	// 是否正在自动重连中
-	const isAutoReconnecting = ref(false)
-	// 读取的nfc数据
-	const nfcData = ref(null)
-	
-
-	
-	// 过度用,用于区别读取的nfc数据是否重复
-	const nfcDataList  = ref([])
 	
 	const deviceSet = new Set()
+	const isScanning = ref(false)
 	
-	const isListening = ref(false)
-	
-	const lastNfcData = ref(null)
-	
-	const lastNfcTime = ref(0)
-		
-	// 设置读取的nfc数据
-	const setNfcData = (data)=>{
-		nfcData.value = data;
-	}
-	
-	// 移除读取的nfc数据
-	const removeNfcData = ()=>{
-		nfcData.value = null;
-	}
-	
-
-
-		
-	// 查找蓝牙设备
 	const searchBlueToothDervices = () => {
-		// 先对蓝夜列表清空
-		blueToothList.value = [];
+		if (isScanning.value) {
+			console.log('正在搜索中，请稍后')
+			return
+		}
+		isScanning.value = true
+		
+		blueToothList.value = []
 		deviceSet.clear()
 		
-		// 未初始化
+		if (linkStatus.value && connectedBlueToothDevice.value) {
+			const lastDevice = getLastConnectedDevice()
+			if (lastDevice && lastDevice.deviceId === connectedBlueToothDevice.value) {
+				blueToothList.value.push(lastDevice)
+				deviceSet.add(lastDevice.deviceId)
+			}
+		}
+		
 		if(!isInit.value){
-			// 1.初始化蓝牙模块
 			uni.openBluetoothAdapter({
 				success: (e) => {
 					console.log('============1.蓝牙初始化成功=============');
-					
 					isInit.value = true
 					
-					// 弹出提示框，提示搜索中
 					uni.showToast({
 						title: '蓝牙设备搜索中',
 						icon: 'loading'
 					})
 			
-					// 2.开始搜索蓝牙设备
 					blueToothList.value = []
 					uni.startBluetoothDevicesDiscovery({
-						// powerLevel:'medium',
-						// allowDuplicatesKey:'false',
 						success: (e) => {
-							// 3.监听寻找到新设备就添加到设备列表
-							uni.onBluetoothDeviceFound((dev) => {
-								//如果列表中有这条数据就不再添加
-								if(!deviceSet.has( dev.devices[0].deviceId) &&  (dev.devices[0].deviceId.indexOf('B6') != -1 || dev.devices[0].deviceId.indexOf('D9') != -1)){
+							const discoveryHandler = (dev) => {
+								if(!deviceSet.has( dev.devices[0].deviceId)){
 									console.log(dev.devices[0]);
 									deviceSet.add(dev.devices[0].deviceId)
 									blueToothList.value.push(dev.devices[0])
 								}
-							})
+							}
+							
+							uni.onBluetoothDeviceFound(discoveryHandler)
 							
 							setTimeout(() => {
 								uni.stopBluetoothDevicesDiscovery({
@@ -310,13 +280,14 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 									}
 								})
 								addLastConnectedDeviceToList()
+								isScanning.value = false
 							}, 3000)
 						},
 						fail: (e) => {
 							console.log('搜索设备失败', e);
+							isScanning.value = false
 						}
 					})
-			
 				},
 				fail: (e) => {
 					if (e.code === 10001) {
@@ -329,41 +300,32 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 							title: '手机不支持蓝牙'
 						})
 					}
+					isScanning.value = false
 				}
 			})
 		}else{
-			// 初始化了，只进行蓝牙查找
-			
-			// 弹出提示框，提示搜索中
 			uni.showToast({
 				title: '蓝牙设备搜索中',
 				icon: 'loading'
 			})
-			blueToothList.value = []
-			// 若app进行多次搜索蓝牙设备需要先执行关闭搜索
+			
 			uni.stopBluetoothDevicesDiscovery({
 			  success(res) {
 			    console.log("停止搜索设备")
 			  }
 			})
 			
-			
-			
-			// 2.开始搜索蓝牙设备
-			
 			uni.startBluetoothDevicesDiscovery({
-				// powerLevel:'medium',
-				// allowDuplicatesKey:'false',
 				success: (e) => {
-					// 3.监听寻找到新设备就添加到设备列表
-					uni.onBluetoothDeviceFound((dev) => {
-						//如果列表中有这条数据就不再添加
-						if(!deviceSet.has( dev.devices[0].deviceId) &&  (dev.devices[0].deviceId.indexOf('B6') != -1 || dev.devices[0].deviceId.indexOf('D9') != -1)){
+					const discoveryHandler = (dev) => {
+						if(!deviceSet.has( dev.devices[0].deviceId)){
 							console.log(dev.devices[0]);
 							deviceSet.add(dev.devices[0].deviceId)
 							blueToothList.value.push(dev.devices[0])
 						}
-					})
+					}
+					
+					uni.onBluetoothDeviceFound(discoveryHandler)
 					
 					setTimeout(() => {
 						uni.stopBluetoothDevicesDiscovery({
@@ -372,24 +334,56 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 							}
 						})
 						addLastConnectedDeviceToList()
+						isScanning.value = false
 					}, 3000)
 				},
 				fail: (e) => {
 					console.log('搜索设备失败', e);
+					isScanning.value = false
 				}
 			})
 		}
-		
-		
-		
 	}
-
-	// 连接蓝牙设备
+	
 	const connetBlue = (device) => {
-		// console.log(blueToothList.value);
 		console.log(device.deviceId);
-
-		// sdk接口连接蓝牙
+		
+		if (linkStatus.value && connectedBlueToothDevice.value === device.deviceId) {
+			console.log('断开蓝牙连接:', device.deviceId)
+			
+			try {
+				watchDisconnect()
+			} catch (e) {
+				console.error('调用断开连接失败:', e)
+			}
+			
+			linkStatus.value = false
+			connectedBlueToothDevice.value = ''
+			quantityOfElectricity.value = -1
+			
+			uni.showToast({
+				title: '已断开连接',
+				icon: 'none',
+				duration: 2000
+			})
+			
+			return
+		}
+		
+		if (linkStatus.value && connectedBlueToothDevice.value !== device.deviceId) {
+			console.log('切换设备，先断开当前连接:', connectedBlueToothDevice.value)
+			
+			try {
+				watchDisconnect()
+			} catch (e) {
+				console.error('调用断开连接失败:', e)
+			}
+			
+			linkStatus.value = false
+			connectedBlueToothDevice.value = ''
+			quantityOfElectricity.value = -1
+		}
+		
 		const b = watchConnect(device.deviceId);
 		connectedBlueToothDevice.value = device.deviceId
 		console.log("是否连接成功："+b);
@@ -406,7 +400,6 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 					duration: 2000
 				});
 				
-				// 提示蓝牙连接成功语音
 				const innerAudioContext = uni.createInnerAudioContext();
 				innerAudioContext.autoplay = true;
 				innerAudioContext.src = '../../static/audio/linkBlueTooth.wav';
@@ -414,21 +407,17 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 				  console.log('开始播放《蓝牙连接成功》语音...');
 				});
 				
-				// 设置蓝牙连接状态为true
 				linkStatus.value = true;
 				
-				// 获取手环当前电量
+				if (!blueToothList.value.find(d => d.deviceId === device.deviceId)) {
+					blueToothList.value.push(device)
+				}
+				
 				let battery = watchBattery();
 				quantityOfElectricity.value = battery;
 				console.log("手环当前电量："+battery);
 				
-				// 保存连接的设备，用于下次自动重连
 				saveConnectedDevice(device);
-				
-				// // 获取手环固件信息
-				// const watchInfo = getWatchVersion();
-				// console.log("手环固件信息："+watchInfo);
-				
 				
 			}else{
 				uni.showToast({
@@ -438,99 +427,83 @@ export const useBlueToothStore = defineStore('blueTooth', () => {
 				});
 			}
 		}, 2000);
-		
-		
 	}
 
-
 	let pollTimer = null
+	let lastReadTime = 0
+	let lastNfcData = ref('')
+	
+	const nfcData = ref("")
+	
+	const nfcDataList = ref([])
 	
 	const listenCharacteristicValueChange = () => {
-		if (isListening.value) {
-			return
-		}
-		isListening.value = true
-		
 		onGetLabelId(function(){});
-		
 		pollTimer = setInterval(() => {
-			try{
+			const now = Date.now()
+			if (now - lastReadTime < 800) {
+				return
+			}
+			try {
 				const label = getLabelValue()
-				if (!label || typeof label !== 'string' || label.trim() === '') {
-					return
+				if (label && label !== lastNfcData.value) {
+					lastReadTime = now
+					lastNfcData.value = label
+					nfcData.value = label
 				}
-				
-				if (label === lastNfcData.value) {
-					return
-				}
-				
-				lastNfcData.value = label
-				nfcData.value = label
-				
-				if (nfcDataList.value && Array.isArray(nfcDataList.value)) {
-					if (nfcDataList.value.length > 50) {
-						nfcDataList.value = nfcDataList.value.slice(-20)
-					}
-					nfcDataList.value.push(label)
-				}
-			}catch(e){
-				console.error("RFID轮询异常:", e)
+			} catch (e) {
+				console.error('读取标签值失败:', e)
 			}
 		}, 500);
-		
-		console.log("RFID监听已开启（轮询方式）");
 	}
 	
 	const stopListenCharacteristicValueChange = () => {
-		closeGetLabelId()
-		isListening.value = false
 		if (pollTimer) {
 			clearInterval(pollTimer)
 			pollTimer = null
 		}
-		lastNfcData.value = null
-		nfcData.value = null
-		console.log("RFID监听已关闭");
+		try {
+			closeGetLabelId()
+		} catch (e) {
+			console.error('关闭标签监听失败:', e)
+		}
+		lastNfcData.value = ''
+		nfcData.value = ''
 	}
-
-
-
 	
-	// // 断开蓝牙设备连接
-	// const closeConnectDevice = ()=>{
-	// 	uni.closeBLEConnection({
-	// 		deviceId: connectedBlueToothDevice.value,
-	// 		success(res){
-	// 			console.log("蓝牙已断开");
-	// 		}
-	// 	})
-
-	// }
-
+	const removeNfcData = () => {
+		nfcData.value = ''
+		lastNfcData.value = ''
+	}
 	
-	return{
-		setNfcData,
-		removeNfcData,
-		setLinkStatusFalse,
-		searchBlueToothDervices,
-		connetBlue,
+	const getCharacteristicValue = () => {
+		return nfcData.value
+	}
+	
+	const quantityOfElectricity = ref(-1)
+	
+	return {
 		blueToothList,
 		connectedBlueToothDevice,
 		advertisServiceUUIDs,
 		characteristicId,
 		writeCharacteristicId,
-		listenCharacteristicValueChange,
-		stopListenCharacteristicValueChange,
-		// writeInfo,
 		linkStatus,
-		quantityOfElectricity,
-		isAutoReconnecting,
-		// closeConnectDevice,
+		setLinkStatusFalse,
 		nfcData,
 		nfcDataList,
 		autoReconnect,
 		checkConnectionStatus,
 		getLastConnectedDevice,
-		addLastConnectedDeviceToList
+		getConnectedDevices,
+		addLastConnectedDeviceToList,
+		searchBlueToothDervices,
+		connetBlue,
+		listenCharacteristicValueChange,
+		stopListenCharacteristicValueChange,
+		getCharacteristicValue,
+		removeNfcData,
+		isAutoReconnecting,
+		quantityOfElectricity
 	};
 })

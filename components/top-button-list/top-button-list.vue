@@ -223,8 +223,11 @@ const deleteOne = ()=>{
 						})
 					}
 					useStatus.DELETE = !useStatus.DELETE;
-					// 还需要将store中的当前读取标签置为null
-					removeNfcData()
+					// 删除成功后先刷新列表，延迟1秒再清除NFC数据
+					getTodayLayEggList();
+					setTimeout(() => {
+						removeNfcData()
+					}, 1000);
 				},
 				fail: (err) => {
 					uni.showToast({
@@ -234,8 +237,6 @@ const deleteOne = ()=>{
 					});
 				},
 				complete: () => {
-					// 最终需要移除store中存储的读取的nfc数据
-					useBlueTooth.removeNfcData();
 					// 清楚选中的记录
 					// 选中记录超过5秒钟，就清除选中的记录id
 					useCage.RemoveSelectedRecordId();

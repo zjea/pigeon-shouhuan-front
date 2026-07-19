@@ -471,9 +471,7 @@ const lastAssignedTime = ref(new Date());
 watch(()=> useBlueTooth.nfcData,
 	(newNfc,oldNfc)=>{ // newNfc就是读取的数据
 	console.log("新读取的数据："+newNfc);
-	// // 先清空音频播报列表
-	// audioList.value = []
-	if(newNfc === null){
+	if(!newNfc){
 		return
 	}
 

@@ -126,6 +126,12 @@ export const onGetLabelId : GetLabelId = function(callback: (label: string) => v
 	}
 	device.setOnUHFListener(new UHFListener());
 	console.log("开启读卡监听器---");
+	try{
+		device.setPower(10);
+		console.log("设置读卡功率为10");
+	}catch(e){
+		console.log("设置读卡功率出错---"+e);
+	}
 	device.inventory();
 }
 

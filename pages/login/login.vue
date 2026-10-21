@@ -38,7 +38,6 @@ const onChangeRemember = function(e){
 	// checkbox-group 的 @change 返回 e.detail.value 是已勾选项的 value 数组
 	const arr = e.detail.value || []
 	isRemember.value = arr.length > 0
-	console.log('checkbox-group event:', e, ' -> isRemember:', isRemember.value)
 }
 
 
@@ -67,22 +66,20 @@ const login = function(){
 
 				// 登录成功后处理账号密码存储
 				if(isRemember.value){
-					// 勾选了记住账号密码，保存到本地
+					// “记住账号”只保存账号，不在本地保存密码
 					try {
 						uni.setStorageSync('storage_username', LoginFrom.value.username)
-						uni.setStorageSync('storage_password', LoginFrom.value.password)
-						console.log('保存账号密码成功')
+						uni.removeStorageSync('storage_password')
 					} catch (e) {
-						console.log('保存账号密码失败:', e)
+						console.error('保存账号失败:', e)
 					}
 				}else{
-					// 未勾选，清除之前保存的账号密码
+					// 未勾选，清除之前保存的账号和历史密码
 					try {
 						uni.removeStorageSync('storage_username')
 						uni.removeStorageSync('storage_password')
-						console.log('清除账号密码')
 					} catch (e) {
-						console.log('清除账号密码失败:', e)
+						console.error('清除账号失败:', e)
 					}
 				}
 
@@ -152,18 +149,14 @@ const setUseShedStore = ()=>{
 onMounted(()=>{
 	try {
 		const username = uni.getStorageSync('storage_username');
-		const password = uni.getStorageSync('storage_password');
-		console.log('读取到的账号:', username);
-		console.log('读取到的密码:', password);
+		// 清理旧版本可能保存的明文密码
+		uni.removeStorageSync('storage_password');
 		if (username) {
 			LoginFrom.value.username = username;
-		}
-		if (password) {
-			LoginFrom.value.password = password;
 			isRemember.value = true;
 		}
 	} catch (e) {
-		console.log('读取存储失败:', e);
+		console.error('读取账号失败:', e);
 	}
 
 })

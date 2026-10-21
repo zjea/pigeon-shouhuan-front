@@ -54,6 +54,8 @@ manifest.json 应用及 Android 权限配置
 
 本仓库是移动端前端，登录、鸽舍数据、繁育记录和报表等功能需要配套后端服务。请在本地开发配置中填写后端地址，不要将访问令牌、密码或个人数据提交到仓库。
 
+生产环境应使用 HTTPS 后端地址。登录页的“记住账号”只保存账号名，不保存密码；安全问题请按 [SECURITY.md](SECURITY.md) 的说明私下报告。
+
 ## 开发和贡献
 
 欢迎通过 GitHub Issues 报告问题或提出功能建议，也欢迎提交 Pull Request。提交前请说明：
@@ -64,6 +66,8 @@ manifest.json 应用及 Android 权限配置
 - 是否涉及后端接口或数据结构变化
 
 详细流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+安全问题请参阅 [SECURITY.md](SECURITY.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 项目状态
 

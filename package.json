@@ -1,4 +1,16 @@
 {
+  "name": "pigeon-shouhuan-front",
+  "version": "2.0.3",
+  "description": "UniApp frontend for pigeon husbandry, wristband, and RFID workflows",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zjea/pigeon-shouhuan-front.git"
+  },
+  "homepage": "https://github.com/zjea/pigeon-shouhuan-front",
+  "bugs": {
+    "url": "https://github.com/zjea/pigeon-shouhuan-front/issues"
+  },
   "dependencies": {
     "json-bigint": "^1.0.0",
     "pinia-plugin-persistedstate": "^3.2.1"
